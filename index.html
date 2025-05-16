@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<!-- Created with https://studio.penguinmod.com/PenguinMod-Packager/ -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- We only include this to explicitly loosen the CSP of various packager environments. It does not provide any security. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob:">
+  <title>sharescreen</title>
+  <style>
+    body {
+      color: #ff0000;
+      font-family: sans-serif;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    :root, body.is-fullscreen {
+      background-color: #27bfd3;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    h1 {
+      font-weight: normal;
+    }
+    a {
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    #app, #loading, #error, #launch {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: default;
+      user-select: none;
+      -webkit-user-select: none;
+      background-color: #27bfd3;
+    }
+    #launch {
+      background-color: rgba(0, 0, 0, 0.7);
+      cursor: pointer;
+    }
+    .green-flag {
+      width: 80px;
+      height: 80px;
+      padding: 16px;
+      border-radius: 100%;
+      background: rgba(255, 255, 255, 0.75);
+      border: 3px solid hsla(0, 100%, 100%, 1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    #loading {
+      
+    }
+    .progress-bar-outer {
+      border: 1px solid currentColor;
+      height: 10px;
+      width: 200px;
+      max-width: 200px;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      width: 0;
+      background-color: currentColor;
+    }
+    .loading-text, noscript {
+      font-weight: normal;
+      font-size: 36px;
+      margin: 0 0 16px;
+    }
+    .loading-image {
+      margin: 0 0 16px;
+    }
+    #error-message, #error-stack {
+      font-family: monospace;
+      max-width: 600px;
+      white-space: pre-wrap;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    #error-stack {
+      text-align: left;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .control-button {
+      width: 2rem;
+      height: 2rem;
+      padding: 0.375rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+      border: 0;
+      border-radius: 4px;
+    }
+    .control-button:hover {
+      background: #00c3ff26;
+    }
+    .control-button.active {
+      background: #00c3ff59;
+    }
+    .fullscreen-button {
+      background: white !important;
+    }
+    .standalone-fullscreen-button {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      border-radius: 0 0 0 4px;
+      padding: 4px;
+      cursor: pointer;
+    }
+    .sc-canvas {
+      cursor: auto;
+    }
+    .sc-monitor-root[data-opcode^="data_"] .sc-monitor-value-color {
+      background-color: #ffffff;
+    }
+    .sc-monitor-row-value-outer {
+      background-color: #fc662c;
+    }
+    .sc-monitor-row-value-editing .sc-monitor-row-value-outer {
+      background-color: #e25b27;
+    }
+    
+  </style>
+  <meta name="theme-color" content="#27bfd3">
+  
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="launch" class="screen" hidden title="Click to start">
+    <div class="green-flag">
+      <svg viewBox="0 0 16.63 17.5" width="42" height="44">
+        <defs><style>.cls-1,.cls-2{fill:#007AF4;stroke:#003080;stroke-linecap:round;stroke-linejoin:round;}.cls-2{stroke-width:1.5px;}</style></defs>
+        <path class="cls-1" d="M.75,2A6.44,6.44,0,0,1,8.44,2h0a6.44,6.44,0,0,0,7.69,0V12.4a6.44,6.44,0,0,1-7.69,0h0a6.44,6.44,0,0,0-7.69,0"/>
+        <line class="cls-2" x1="0.75" y1="16.75" x2="0.75" y2="0.75"/>
+      </svg>
+    </div>
+  </div>
+
+  <div id="loading" class="screen">
+    <noscript>Enable JavaScript</noscript>
+    
+    
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="loading-inner"></div></div>
+  </div>
+
+  <div id="error" class="screen" hidden>
+    <h1>Error</h1>
+    <details>
+      <summary id="error-message"></summary>
+      <p id="error-stack"></p>
+    </details>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    const appElement = document.getElementById('app');
+    const launchScreen = document.getElementById('launch');
+    const loadingScreen = document.getElementById('loading');
+    const loadingInner = document.getElementById('loading-inner');
+    const errorScreen = document.getElementById('error');
+    const errorScreenMessage = document.getElementById('error-message');
+    const errorScreenStack = document.getElementById('error-stack');
+
+    const handleError = (error) => {
+      console.error(error);
+      if (!errorScreen.hidden) return;
+      errorScreen.hidden = false;
+      errorScreenMessage.textContent = '' + error;
+      let debug = error && error.stack || 'no stack';
+      debug += '\nUser agent: ' + navigator.userAgent;
+      errorScreenStack.textContent = debug;
+    };
+    const setProgress = (progress) => {
+      if (loadingInner) loadingInner.style.width = progress * 100 + '%';
+    };
+    const interpolate = (a, b, t) => a + t * (b - a);
+
+    try {
+      setProgress(0.1);
+
+      const scaffolding = new Scaffolding.Scaffolding();
+      scaffolding.width = 480;
+      scaffolding.height = 360;
+      scaffolding.resizeMode = "dynamic-resize";
+      scaffolding.editableLists = false;
+      scaffolding.usePackagedRuntime = true;
+      scaffolding.setup();
+      scaffolding.appendTo(appElement);
+
+      const vm = scaffolding.vm;
+      window.scaffolding = scaffolding;
+      window.vm = scaffolding.vm;
+      window.Scratch = {
+        vm,
+        renderer: vm.renderer,
+        audioEngine: vm.runtime.audioEngine,
+        bitmapAdapter: vm.runtime.v2BitmapAdapter,
+        videoProvider: vm.runtime.ioDevices.video.provider
+      };
+
+      scaffolding.setUsername("player####".replace(/#/g, () => Math.floor(Math.random() * 10)));
+      scaffolding.setAccentColor("#00c3ff");
+
+      try {
+        scaffolding.addCloudProvider(new Scaffolding.Cloud.WebSocketProvider("wss://cloudlink.mikedev101.cc/0.2.0", "p4-@Project.pmp"));
+      } catch (error) {
+        console.error(error);
+      }
+
+      const greenFlagButton = document.createElement('img');
+      greenFlagButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16.63 17.5"><path d="M.75 2a6.44 6.44 0 017.69 0h0a6.44 6.44 0 007.69 0v10.4a6.44 6.44 0 01-7.69 0h0a6.44 6.44 0 00-7.69 0" fill="#007AF4" stroke="#003080" stroke-linecap="round" stroke-linejoin="round"/><path stroke-width="1.5" fill="#007AF4" stroke="#003080" stroke-linecap="round" stroke-linejoin="round" d="M.75 16.75v-16"/></svg>');
+      greenFlagButton.className = 'control-button green-flag-button';
+      greenFlagButton.draggable = false;
+      greenFlagButton.addEventListener('click', () => {
+        scaffolding.greenFlag();
+      });
+      scaffolding.addEventListener('PROJECT_RUN_START', () => {
+        greenFlagButton.classList.add('active');
+      });
+      scaffolding.addEventListener('PROJECT_RUN_STOP', () => {
+        greenFlagButton.classList.remove('active');
+      });
+      scaffolding.addControlButton({
+        element: greenFlagButton,
+        where: 'top-left'
+      });
+
+      const pauseButton = document.createElement('img');
+      pauseButton.className = 'control-button pause-button';
+      pauseButton.draggable = false;
+      let isPaused = false;
+      pauseButton.addEventListener('click', () => {
+        vm.setPaused(!isPaused);
+      });
+      const updatePause = (_isPaused) => {
+        isPaused = _isPaused;
+        if (isPaused) {
+          pauseButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg width="16" height="16" viewBox="0 0 4.2333332 4.2333335" xmlns="http://www.w3.org/2000/svg"><path d="m3.95163484 2.02835365-1.66643921.9621191-1.66643913.96211911V.10411543l1.66643922.9621191z" fill="#ffae00"/></svg>');
+        } else {
+          pauseButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg width="16" height="16" viewBox="0 0 4.2333332 4.2333335" xmlns="http://www.w3.org/2000/svg"><g fill="#ffae00"><path d="M.389.19239126h1.2631972v3.8485508H.389zM2.5810001.19239126h1.2631972v3.8485508H2.5810001z"/></g></svg>');
+        }
+      }
+      vm.on('P4_PAUSE', updatePause);
+      updatePause();
+      scaffolding.addControlButton({
+        element: pauseButton,
+        where: 'top-left'
+      });
+
+      const stopAllButton = document.createElement('img');
+      stopAllButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><path fill="#ec5959" stroke="#b84848" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M4.3.5h5.4l3.8 3.8v5.4l-3.8 3.8H4.3L.5 9.7V4.3z"/></svg>');
+      stopAllButton.className = 'control-button stop-all-button';
+      stopAllButton.draggable = false;
+      stopAllButton.addEventListener('click', () => {
+        scaffolding.stopAll();
+      });
+      scaffolding.addControlButton({
+        element: stopAllButton,
+        where: 'top-left'
+      });
+
+      if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+        let isFullScreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const fullscreenButton = document.createElement('img');
+        fullscreenButton.draggable = false;
+        fullscreenButton.className = 'control-button fullscreen-button';
+        fullscreenButton.addEventListener('click', () => {
+          if (isFullScreen) {
+            if (document.exitFullscreen) {
+              document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+              document.webkitExitFullscreen();
+            }
+          } else {
+            if (document.body.requestFullscreen) {
+              document.body.requestFullscreen();
+            } else if (document.body.webkitRequestFullscreen) {
+              document.body.webkitRequestFullscreen();
+            }
+          }
+        });
+        const otherControlsExist = true;
+        const fillColor = otherControlsExist ? '#575E75' : '#ff0000';
+        const updateFullScreen = () => {
+          isFullScreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+          document.body.classList.toggle('is-fullscreen', isFullScreen);
+          if (isFullScreen) {
+            fullscreenButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><g fill="' + fillColor + '" fill-rule="evenodd"><path d="M12.662 3.65l.89.891 3.133-2.374a.815.815 0 011.15.165.819.819 0 010 .986L15.467 6.46l.867.871c.25.25.072.664-.269.664L12.388 8A.397.397 0 0112 7.611V3.92c0-.341.418-.514.662-.27M7.338 16.35l-.89-.89-3.133 2.374a.817.817 0 01-1.15-.166.819.819 0 010-.985l2.37-3.143-.87-.871a.387.387 0 01.27-.664L7.612 12a.397.397 0 01.388.389v3.692a.387.387 0 01-.662.27M7.338 3.65l-.89.891-3.133-2.374a.815.815 0 00-1.15.165.819.819 0 000 .986l2.37 3.142-.87.871a.387.387 0 00.27.664L7.612 8A.397.397 0 008 7.611V3.92a.387.387 0 00-.662-.27M12.662 16.35l.89-.89 3.133 2.374a.817.817 0 001.15-.166.819.819 0 000-.985l-2.368-3.143.867-.871a.387.387 0 00-.269-.664L12.388 12a.397.397 0 00-.388.389v3.692c0 .342.418.514.662.27"/></g></svg>');
+          } else {
+            fullscreenButton.src = 'data:image/svg+xml,' + encodeURIComponent('<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><g fill="' + fillColor + '" fill-rule="evenodd"><path d="M16.338 7.35l-.89-.891-3.133 2.374a.815.815 0 01-1.15-.165.819.819 0 010-.986l2.368-3.142-.867-.871a.387.387 0 01.269-.664L16.612 3a.397.397 0 01.388.389V7.08a.387.387 0 01-.662.27M3.662 12.65l.89.89 3.133-2.374a.817.817 0 011.15.166.819.819 0 010 .985l-2.37 3.143.87.871c.248.25.071.664-.27.664L3.388 17A.397.397 0 013 16.611V12.92c0-.342.418-.514.662-.27M3.662 7.35l.89-.891 3.133 2.374a.815.815 0 001.15-.165.819.819 0 000-.986L6.465 4.54l.87-.871a.387.387 0 00-.27-.664L3.388 3A.397.397 0 003 3.389V7.08c0 .341.418.514.662.27M16.338 12.65l-.89.89-3.133-2.374a.817.817 0 00-1.15.166.819.819 0 000 .985l2.368 3.143-.867.871a.387.387 0 00.269.664l3.677.005a.397.397 0 00.388-.389V12.92a.387.387 0 00-.662-.27"/></g></svg>');
+          }
+        };
+        updateFullScreen();
+        document.addEventListener('fullscreenchange', updateFullScreen);
+        document.addEventListener('webkitfullscreenchange', updateFullScreen);
+        if (otherControlsExist) {
+          fullscreenButton.className = 'control-button fullscreen-button';
+          scaffolding.addControlButton({
+            element: fullscreenButton,
+            where: 'top-right'
+          });
+        } else {
+          fullscreenButton.className = 'standalone-fullscreen-button';
+          document.body.appendChild(fullscreenButton);
+        }
+      }
+
+      vm.setTurboMode(false);
+      if (vm.setInterpolation) vm.setInterpolation(true);
+      if (vm.setFramerate) vm.setFramerate(60);
+      if (vm.renderer.setUseHighQualityRender) vm.renderer.setUseHighQualityRender(true);
+      if (vm.setRuntimeOptions) vm.setRuntimeOptions({
+        fencing: false,
+        miscLimits: false,
+        maxClones: 9999999999,
+        dangerousOptimizations: false
+      });
+      if (vm.setCompilerOptions) vm.setCompilerOptions({
+        enabled: true,
+        warpTimer: false
+      });
+      if (vm.renderer.setMaxTextureDimension) vm.renderer.setMaxTextureDimension(2048);
+
+      if (typeof ScaffoldingAddons !== 'undefined') {
+        ScaffoldingAddons.run(scaffolding, {"gamepad":false,"pointerlock":false,"specialCloudBehaviors":true,"unsafeCloudBehaviors":true,"pause":true});
+      }
+
+      scaffolding.setExtensionSecurityManager({
+        getSandboxMode: () => 'unsandboxed',
+        canLoadExtensionFromProject: () => true
+      });
+      for (const extension of ["data:text/javascript;,(function(Scratch)%20%7B%20%2F%2F%20Video%20sharing%20(v2.5.2)%20by%20pooiod7%0A%0A(function(Scratch)%20%7B%0A%20%20'use%20strict'%3B%0A%0A%20%20if%20(!Scratch.extensions.unsandboxed)%20%7B%0A%20%20%20%20throw%20new%20Error('This%20extension%20must%20run%20unsandboxed')%3B%0A%20%20%7D%0A%0A%20%20const%20runtime%20%3D%20Scratch.vm.runtime%3B%0A%20%20const%20renderer%20%3D%20runtime.renderer%3B%0A%20%20const%20Cast%20%3D%20Scratch.Cast%3B%0A%0A%20%20var%20createdSkins%20%3D%20%5B%5D%3B%0A%0A%20%20const%20videoElement%20%3D%20document.createElement('video')%3B%0A%20%20videoElement.style.display%20%3D%20'none'%3B%0A%20%20document.body.appendChild(videoElement)%3B%0A%20%20let%20mediaStream%20%3D%20null%3B%0A%0A%20%20let%20haswarned%3B%0A%0A%20%20function%20shouldwarn()%20%7B%0A%20%20%20%20return%20!Scratch.vm.runtime.isPackaged%3B%0A%20%20%7D%0A%0A%20%20function%20MakeWidget(html%2C%20pageTitle%2C%20width%2C%20height)%20%7B%0A%20%20%20%20var%20accent%20%3D%20%22%23e01f1f%22%3B%0A%20%20%20%20var%20backColor%20%3D%20%22rgba(0%2C%200%2C%200%2C%200.7)%22%3B%0A%0A%20%20%20%20function%20getTheme()%20%7B%0A%20%20%20%20%20%20function%20standardizeColor(color)%20%7B%0A%20%20%20%20%20%20%20%20if%20(color.startsWith('%23'))%20%7B%0A%20%20%20%20%20%20%20%20%20%20let%20r%20%3D%20parseInt(color.slice(1%2C%203)%2C%2016)%3B%0A%20%20%20%20%20%20%20%20%20%20let%20g%20%3D%20parseInt(color.slice(3%2C%205)%2C%2016)%3B%0A%20%20%20%20%20%20%20%20%20%20let%20b%20%3D%20parseInt(color.slice(5%2C%207)%2C%2016)%3B%0A%20%20%20%20%20%20%20%20%20%20return%20%60rgb(%24%7Br%7D%2C%20%24%7Bg%7D%2C%20%24%7Bb%7D)%60%3B%0A%20%20%20%20%20%20%20%20%7D%20else%20if%20(color.startsWith('rgb'))%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%20color%3B%0A%20%20%20%20%20%20%20%20%7D%20else%20if%20(color.startsWith('rgba'))%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%20color.slice(0%2C%20color.length%20-%204)%20%2B%20'1)'%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20return%20color%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20try%20%7B%0A%20%20%20%20%20%20%20%20accent%20%3D%20%22%23e01f1f%22%3B%0A%20%20%20%20%20%20%20%20backColor%20%3D%20%22rgba(0%2C%200%2C%200%2C%200.7)%22%3B%0A%20%20%20%20%20%20%20%20var%20themeSetting%20%3D%20localStorage.getItem('tw%3Atheme')%3B%0A%20%20%20%20%20%20%20%20var%20parsed%20%3D%20JSON.parse(themeSetting)%3B%0A%20%20%20%20%20%20%20%20if%20(parsed.accent%20%3D%3D%3D%20'purple')%20%7B%0A%20%20%20%20%20%20%20%20%20%20accent%20%3D%20'%23855cd6'%3B%0A%20%20%20%20%20%20%20%20%7D%20else%20if%20(parsed.accent%20%3D%3D%3D%20'blue')%20%7B%0A%20%20%20%20%20%20%20%20%20%20accent%20%3D%20'%234c97ff'%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%20catch%20(err)%20%7B%0A%20%20%20%20%20%20%20%20err%20%3D%20err%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20if%20(document.querySelector(%22%23app%20%3E%20div%20%3E%20div%20%3E%20div%20%3E%20div.gui_menu-bar-position_3U1T0.menu-bar_menu-bar_JcuHF.box_box_2jjDp%22))%20%7B%0A%20%20%20%20%20%20%20%20var%20accent2%20%3D%20window.getComputedStyle(document.querySelector(%22%23app%20%3E%20div%20%3E%20div%20%3E%20div%20%3E%20div.gui_menu-bar-position_3U1T0.menu-bar_menu-bar_JcuHF.box_box_2jjDp%22)).backgroundColor%3B%0A%20%20%20%20%20%20%20%20if%20(accent2%20%26%26%20accent%20!%3D%20%22transparent%22)%20%7B%0A%20%20%20%20%20%20%20%20%20%20accent%20%3D%20accent2%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20backColor%20%3D%20standardizeColor(accent).replace('rgb'%2C%20'rgba').replace(')'%2C%20'%2C%200.7)')%3B%0A%20%20%20%20%7D%0A%20%20%20%20getTheme()%3B%0A%0A%20%20%20%20const%20overlay%20%3D%20document.createElement('div')%3B%0A%20%20%20%20overlay.style.position%20%3D%20'fixed'%3B%0A%20%20%20%20overlay.style.top%20%3D%20'0'%3B%0A%20%20%20%20overlay.style.left%20%3D%20'0'%3B%0A%20%20%20%20overlay.style.width%20%3D%20'100%25'%3B%0A%20%20%20%20overlay.style.height%20%3D%20'100%25'%3B%0A%20%20%20%20overlay.style.backgroundColor%20%3D%20backColor%3B%0A%20%20%20%20overlay.style.zIndex%20%3D%20'9999'%3B%0A%20%20%20%20overlay.id%20%3D%20%22widgetoverlay%22%3B%0A%0A%20%20%20%20const%20wrapper%20%3D%20document.createElement('div')%3B%0A%20%20%20%20wrapper.style.position%20%3D%20'absolute'%3B%0A%20%20%20%20wrapper.style.top%20%3D%20%2250%25%22%3B%0A%20%20%20%20wrapper.style.left%20%3D%20%2250%25%22%3B%0A%20%20%20%20wrapper.style.transform%20%3D%20'translate(-50%25%2C%20-50%25)'%3B%0A%20%20%20%20wrapper.style.border%20%3D%20'4px%20solid%20rgba(255%2C%20255%2C%20255%2C%200.25)'%3B%0A%20%20%20%20wrapper.style.borderRadius%20%3D%20'13px'%3B%0A%20%20%20%20wrapper.style.padding%20%3D%20'0px'%3B%0A%20%20%20%20wrapper.style.width%20%3D%20width%20%7C%7C%20'70vw'%3B%0A%20%20%20%20wrapper.style.height%20%3D%20height%20%7C%7C%20'80vh'%3B%0A%0A%20%20%20%20const%20modal%20%3D%20document.createElement('div')%3B%0A%20%20%20%20modal.style.padding%20%3D%20'0px'%3B%0A%20%20%20%20modal.style.borderRadius%20%3D%20'10px'%3B%0A%20%20%20%20modal.style.width%20%3D%20'100%25'%3B%0A%20%20%20%20modal.style.height%20%3D%20'100%25'%3B%0A%20%20%20%20modal.style.textAlign%20%3D%20'center'%3B%0A%0A%20%20%20%20wrapper.appendChild(modal)%3B%0A%0A%20%20%20%20const%20title%20%3D%20document.createElement('div')%3B%0A%20%20%20%20title.style.position%20%3D%20'absolute'%3B%0A%20%20%20%20title.style.top%20%3D%20'0'%3B%0A%20%20%20%20title.style.left%20%3D%20'0'%3B%0A%20%20%20%20title.style.width%20%3D%20'100%25'%3B%0A%20%20%20%20title.style.height%20%3D%20'50px'%3B%0A%20%20%20%20title.style.backgroundColor%20%3D%20accent%3B%0A%20%20%20%20title.style.display%20%3D%20'flex'%3B%0A%20%20%20%20title.style.justifyContent%20%3D%20'center'%3B%0A%20%20%20%20title.style.alignItems%20%3D%20'center'%3B%0A%20%20%20%20title.style.color%20%3D%20'white'%3B%0A%20%20%20%20title.style.fontSize%20%3D%20'24px'%3B%0A%20%20%20%20title.style.borderTopLeftRadius%20%3D%20'10px'%3B%0A%20%20%20%20title.style.borderTopRightRadius%20%3D%20'10px'%3B%0A%20%20%20%20title.id%20%3D%20%22WidgetTitle%22%3B%0A%20%20%20%20title.innerHTML%20%3D%20pageTitle%20%7C%7C%20%22Widget%22%3B%0A%0A%20%20%20%20const%20widgetframe%20%3D%20document.createElement('div')%3B%0A%20%20%20%20widgetframe.style.width%20%3D%20'100%25'%3B%0A%20%20%20%20widgetframe.style.height%20%3D%20%60calc(100%25%20-%2050px)%60%3B%0A%20%20%20%20widgetframe.style.marginTop%20%3D%20'50px'%3B%0A%20%20%20%20widgetframe.style.border%20%3D%20'none'%3B%0A%20%20%20%20widgetframe.id%20%3D%20%22Widgetframe%22%3B%0A%20%20%20%20widgetframe.name%20%3D%20'Widgetframe'%3B%0A%20%20%20%20widgetframe.style.borderBottomLeftRadius%20%3D%20'10px'%3B%0A%20%20%20%20widgetframe.style.borderBottomRightRadius%20%3D%20'10px'%3B%0A%20%20%20%20widgetframe.style.backgroundColor%20%3D%20'var(--ui-primary%2C%20white)'%3B%0A%20%20%20%20widgetframe.innerHTML%20%3D%20html%3B%0A%20%20%20%20modal.appendChild(widgetframe)%3B%0A%0A%20%20%20%20modal.appendChild(title)%3B%0A%20%20%20%20overlay.appendChild(wrapper)%3B%0A%20%20%20%20document.body.appendChild(overlay)%3B%0A%20%20%7D%0A%0A%20%20class%20VideoSharing%20%7B%0A%20%20%20%20getInfo()%20%7B%0A%20%20%20%20%20%20return%20%7B%0A%20%20%20%20%20%20%20%20id%3A%20'p7videosharing'%2C%0A%20%20%20%20%20%20%20%20name%3A%20'Video%20Sharing'%2C%0A%20%20%20%20%20%20%20%20color1%3A%20'%2300a1ff'%2C%0A%20%20%20%20%20%20%20%20color2%3A%20'%23006bff'%2C%0A%20%20%20%20%20%20%20%20blocks%3A%20%5B%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'startScreenSharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.COMMAND%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Start%20screen%20sharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'startCameraSharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.COMMAND%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Start%20camera%20sharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'stopSharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.COMMAND%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Stop%20sharing%20video'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'getHEX'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Get%20share%20HEX%3A%20rez%20%5BREZ%5D'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20REZ%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.1%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'getPNG'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Get%20share%20PNG%3A%20rez%20%5BREZ%5D'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20REZ%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.5%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'getWEBP'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Get%20share%20WEBP%3A%20rez%20%5BREZ%5D%20Quality%20%5BQUALITY%5D'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20REZ%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.5%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20QUALITY%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.7%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'getJPEG'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Get%20share%20JPEG%3A%20rez%20%5BREZ%5D%20Quality%20%5BQUALITY%5D'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20REZ%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.5%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20QUALITY%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.NUMBER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%200.7%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22showimage%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.COMMAND%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%22Show%20image%20%5BURL%5D%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20URL%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.STRING%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%20%22https%3A%2F%2Fextensions.turbowarp.org%2Fdango.png%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'isSharing'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.BOOLEAN%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Is%20sharing%3F'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'canScreen'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.BOOLEAN%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Can%20share%20screen%3F'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20'getAspectRatio'%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20'Stream%20Size'%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%5D%2C%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20async%20showimage(%7B%0A%20%20%20%20%20%20URL%0A%20%20%20%20%7D%2C%20util)%20%7B%0A%20%20%20%20%20%20const%20target%20%3D%20util.target%20%7C%7C%20util%3B%0A%20%20%20%20%20%20if%20(!target)%20return%3B%0A%0A%20%20%20%20%20%20if%20(!URL)%20%7B%0A%20%20%20%20%20%20%20%20this.restoreSkin(%7B%7D%2C%20util)%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20skins%20%3D%20renderer._allSkins%3B%0A%20%20%20%20%20%20var%20drawables%20%3D%20renderer._allDrawables%3B%0A%0A%20%20%20%20%20%20const%20drawableID%20%3D%20target.drawableID%3B%0A%0A%20%20%20%20%20%20var%20removeSkin%20%3D%20false%3B%0A%0A%20%20%20%20%20%20if%20(!URL.startsWith(%22data%3A%22))%20%7B%0A%20%20%20%20%20%20%20%20async%20function%20imageToDataURI(url)%20%7B%0A%20%20%20%20%20%20%20%20%20%20try%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20response%20%3D%20await%20fetch(url)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20const%20blob%20%3D%20await%20response.blob()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20new%20Promise((resolve)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20const%20reader%20%3D%20new%20FileReader()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20reader.onloadend%20%3D%20()%20%3D%3E%20resolve(reader.result)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20reader.readAsDataURL(blob)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%20%20%20%20%7D%20catch%20(e)%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20removeSkin%20%3D%20true%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20return%20%60data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8%2FwcAAwAB%2Fep7rVQAAAAASUVORK5CYII%3D%60%3B%0A%20%20%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20URL%20%3D%20await%20imageToDataURI(URL)%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20doUpdate%20%3D%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D%20%26%26%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D.tmpSkin%3B%0A%0A%20%20%20%20%20%20const%20image%20%3D%20new%20Image()%3B%0A%20%20%20%20%20%20image.onload%20%3D%20()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20var%20canvas%20%3D%20document.createElement(%22canvas%22)%3B%0A%0A%20%20%20%20%20%20%20%20canvas.width%20%3D%20image.width%3B%0A%20%20%20%20%20%20%20%20canvas.height%20%3D%20image.height%3B%0A%0A%20%20%20%20%20%20%20%20const%20ctx%20%3D%20canvas.getContext(%222d%22)%3B%0A%20%20%20%20%20%20%20%20ctx.drawImage(image%2C%200%2C%200)%3B%0A%0A%20%20%20%20%20%20%20%20if%20(removeSkin)%20%7B%0A%20%20%20%20%20%20%20%20%20%20if%20(doUpdate)%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20if%20(%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20drawables%5BdrawableID%5D._skin%20%26%26%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D%20%26%26%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D.tmpSkin%0A%20%20%20%20%20%20%20%20%20%20%20%20)%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20renderer.destroySkin(drawables%5BdrawableID%5D._skin._id)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%20%20target.updateAllDrawableProperties()%3B%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20if%20(doUpdate)%20%7B%0A%20%20%20%20%20%20%20%20%20%20renderer.updateBitmapSkin(drawables%5BdrawableID%5D._skin._id%2C%20canvas%2C%202)%3B%0A%20%20%20%20%20%20%20%20%20%20renderer.updateDrawableSkinId(drawableID%2C%20drawables%5BdrawableID%5D._skin._id)%3B%0A%20%20%20%20%20%20%20%20%7D%20else%20%7B%0A%20%20%20%20%20%20%20%20%20%20const%20skinId%20%3D%20renderer.createBitmapSkin(canvas)%3B%0A%20%20%20%20%20%20%20%20%20%20skins%5BskinId%5D.tmpSkin%20%3D%20true%3B%0A%20%20%20%20%20%20%20%20%20%20renderer.updateDrawableSkinId(drawableID%2C%20skinId)%3B%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20if%20(target.onTargetVisualChange)%20%7B%0A%20%20%20%20%20%20%20%20%20%20target.onTargetVisualChange()%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20image.src%20%3D%20Scratch.Cast.toString(URL)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20restoreSkin(args%2C%20util)%20%7B%0A%20%20%20%20%20%20const%20target%20%3D%20util.target%3B%0A%20%20%20%20%20%20if%20(!target)%20return%3B%0A%20%20%20%20%20%20const%20drawableID%20%3D%20target.drawableID%3B%0A%0A%20%20%20%20%20%20var%20skins%20%3D%20renderer._allSkins%3B%0A%20%20%20%20%20%20var%20drawables%20%3D%20renderer._allDrawables%3B%0A%0A%20%20%20%20%20%20if%20(%0A%20%20%20%20%20%20%20%20drawables%5BdrawableID%5D._skin%20%26%26%0A%20%20%20%20%20%20%20%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D%20%26%26%0A%20%20%20%20%20%20%20%20skins%5Bdrawables%5BdrawableID%5D._skin._id%5D.tmpSkin%0A%20%20%20%20%20%20)%20%7B%0A%20%20%20%20%20%20%20%20renderer.destroySkin(drawables%5BdrawableID%5D._skin._id)%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20target.updateAllDrawableProperties()%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20canScreen()%20%7B%0A%20%20%20%20%20%20try%20%7B%0A%20%20%20%20%20%20%20%20return%20navigator.mediaDevices%20%26%26%20'getDisplayMedia'%20in%20navigator.mediaDevices%3B%0A%20%20%20%20%20%20%7D%20catch%20(error)%20%7B%0A%20%20%20%20%20%20%20%20return%20false%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20stopSharing()%20%7B%0A%20%20%20%20%20%20if%20(mediaStream)%20%7B%0A%20%20%20%20%20%20%20%20mediaStream.getTracks().forEach((track)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20track.stop()%3B%0A%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20null%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20isSharing()%20%7B%0A%20%20%20%20%20%20return%20Scratch.Cast.toBoolean(mediaStream%20%26%26%20videoElement.srcObject)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20async%20warn(thing)%20%7B%0A%20%20%20%20%20%20if%20(haswarned%20!%3D%20thing)%20%7B%0A%0A%20%20%20%20%20%20%20%20if%20(document.getElementById(%22widgetoverlay%22))%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%20false%3B%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20window.resolve8932902095902%3B%0A%20%20%20%20%20%20%20%20var%20allow%20%3D%20new%20Promise((res%2C%20rej)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20window.resolve8932902095902%20%3D%20res%3B%0A%20%20%20%20%20%20%20%20%7D)%3B%0A%0A%20%20%20%20%20%20%20%20MakeWidget(%60%3Cdiv%20class%3D%22security-manager-modal_body_Pn7qy%20box_box_2jjDp%22%20style%3D%22border-bottom-left-radius%3A%2010px%3B%20border-bottom-right-radius%3A%2010px%3B%20padding-bottom%3A%2025px%3B%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cp%3E%3Cspan%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20This%20project%20is%20is%20requesting%20access%20to%20your%20%24%7Bthing%7D.%3Cbr%3EDo%20you%20wish%20to%20allow%20this%20action%3F%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fspan%3E%3C%2Fp%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%20class%3D%22load-extension_unsandboxed-warning_2iFhK%22%3E%3Cspan%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20If%20you%20say%20yes%2C%20your%20choice%20will%20be%20remembered%20until%20a%20new%20project%20is%20loaded%2C%20or%20the%20project%20asks%20for%20something%20else.%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fspan%3E%3C%2Fdiv%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fdiv%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cdiv%20class%3D%22security-manager-modal_buttons_1LSKA%20box_box_2jjDp%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cbutton%20class%3D%22security-manager-modal_deny-button_3Vd-R%22%20onclick%3D'document.getElementById(%22widgetoverlay%22).remove()%3B%20window.resolve8932902095902(false)%3B'%3E%3Cspan%3EDeny%3C%2Fspan%3E%3C%2Fbutton%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3Cbutton%20class%3D%22security-manager-modal_allow-button_3tcXk%22%20onclick%3D'document.getElementById(%22widgetoverlay%22).remove()%3B%20window.resolve8932902095902(true)%3B'%3E%3Cspan%3EAllow%3C%2Fspan%3E%3C%2Fbutton%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fdiv%3E%0A%20%20%20%20%20%20%20%20%20%20%3C%2Fdiv%3E%60%2C%20%22Extension%20Security%22%2C%20%22500px%22%2C%20%22259px%22)%3B%0A%0A%20%20%20%20%20%20%20%20if%20(await%20allow)%20%7B%0A%20%20%20%20%20%20%20%20%20%20haswarned%20%3D%20thing%3B%0A%20%20%20%20%20%20%20%20%20%20return%20true%3B%0A%20%20%20%20%20%20%20%20%7D%20else%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%20false%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%20else%20%7B%0A%20%20%20%20%20%20%20%20return%20true%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20async%20startScreenSharing()%20%7B%0A%20%20%20%20%20%20if%20(this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20this.stopSharing()%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20if%20(!this.canScreen())%20%7B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20if%20(shouldwarn())%20%7B%0A%20%20%20%20%20%20%20%20if%20(!await%20this.warn(%22screen%22))%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20return%20new%20Promise((resolve)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20navigator.mediaDevices%0A%20%20%20%20%20%20%20%20%20%20.getDisplayMedia(%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20video%3A%20true%0A%20%20%20%20%20%20%20%20%20%20%7D)%0A%20%20%20%20%20%20%20%20%20%20.then((stream)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20mediaStream%20%3D%20stream%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20stream%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20videoElement.play()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20stream.getVideoTracks()%5B0%5D.onended%20%3D%20function()%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20stream.getTracks().forEach((track)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20track.stop()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20null%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20mediaStream%20%3D%20null%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20resolve()%3B%0A%20%20%20%20%20%20%20%20%20%20%7D)%0A%20%20%20%20%20%20%20%20%20%20.catch((error)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20console.error('Error%20getting%20screen%3A'%2C%20error)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20resolve()%3B%0A%20%20%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20async%20startCameraSharing()%20%7B%0A%20%20%20%20%20%20if%20(this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20this.stopSharing()%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20if%20(shouldwarn())%20%7B%0A%20%20%20%20%20%20%20%20if%20(!await%20this.warn(%22camera%22))%20%7B%0A%20%20%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20return%20new%20Promise((resolve%2C%20reject)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20navigator.mediaDevices%0A%20%20%20%20%20%20%20%20%20%20.getUserMedia(%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20video%3A%20true%0A%20%20%20%20%20%20%20%20%20%20%7D)%0A%20%20%20%20%20%20%20%20%20%20.then((stream)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20mediaStream%20%3D%20stream%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20stream%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20videoElement.play()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20stream.getVideoTracks()%5B0%5D.onended%20%3D%20function()%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20mediaStream.getTracks().forEach((track)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20track.stop()%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20null%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20mediaStream%20%3D%20null%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20resolve()%3B%0A%20%20%20%20%20%20%20%20%20%20%7D)%0A%20%20%20%20%20%20%20%20%20%20.catch((error)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20console.error('Error%20getting%20camera%3A'%2C%20error)%3B%0A%20%20%20%20%20%20%20%20%20%20%20%20reject()%3B%0A%20%20%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20stopSharing()%20%7B%0A%20%20%20%20%20%20if%20(mediaStream)%20%7B%0A%20%20%20%20%20%20%20%20mediaStream.getTracks().forEach((track)%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20track.stop()%3B%0A%20%20%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%20%20%20%20videoElement.srcObject%20%3D%20null%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%0A%20%20%20%20getHEX(args)%20%7B%0A%20%20%20%20%20%20if%20(!this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20rez%20%3D%20args.REZ%3B%0A%20%20%20%20%20%20if%20(rez%20%3E%201)%20%7B%0A%20%20%20%20%20%20%20%20rez%20%3D%201%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20const%20canvas%20%3D%20document.createElement('canvas')%3B%0A%20%20%20%20%20%20const%20context%20%3D%20canvas.getContext('2d')%3B%0A%20%20%20%20%20%20const%20width%20%3D%20videoElement.videoWidth%20*%20rez%3B%0A%20%20%20%20%20%20const%20height%20%3D%20videoElement.videoHeight%20*%20rez%3B%0A%20%20%20%20%20%20canvas.width%20%3D%20width%3B%0A%20%20%20%20%20%20canvas.height%20%3D%20height%3B%0A%0A%20%20%20%20%20%20context.drawImage(videoElement%2C%200%2C%200%2C%20width%2C%20height)%3B%0A%0A%20%20%20%20%20%20const%20imageData%20%3D%20context.getImageData(0%2C%200%2C%20width%2C%20height).data%3B%0A%0A%20%20%20%20%20%20const%20hexColors%20%3D%20%5B%5D%3B%0A%20%20%20%20%20%20for%20(let%20i%20%3D%200%3B%20i%20%3C%20imageData.length%3B%20i%20%2B%3D%204)%20%7B%0A%20%20%20%20%20%20%20%20const%20r%20%3D%20imageData%5Bi%5D.toString(16).padStart(2%2C%20'0')%3B%0A%20%20%20%20%20%20%20%20const%20g%20%3D%20imageData%5Bi%20%2B%201%5D.toString(16).padStart(2%2C%20'0')%3B%0A%20%20%20%20%20%20%20%20const%20b%20%3D%20imageData%5Bi%20%2B%202%5D.toString(16).padStart(2%2C%20'0')%3B%0A%20%20%20%20%20%20%20%20hexColors.push(%60%23%24%7Br%7D%24%7Bg%7D%24%7Bb%7D%60)%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20return%20hexColors%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20getPNG(args)%20%7B%0A%20%20%20%20%20%20if%20(!this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20var%20rez%20%3D%20args.REZ%3B%0A%20%20%20%20%20%20if%20(rez%20%3E%201)%20%7B%0A%20%20%20%20%20%20%20%20rez%20%3D%201%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20const%20canvas%20%3D%20document.createElement('canvas')%3B%0A%20%20%20%20%20%20const%20context%20%3D%20canvas.getContext('2d')%3B%0A%20%20%20%20%20%20const%20width%20%3D%20videoElement.videoWidth%20*%20rez%3B%0A%20%20%20%20%20%20const%20height%20%3D%20videoElement.videoHeight%20*%20rez%3B%0A%20%20%20%20%20%20canvas.width%20%3D%20width%3B%0A%20%20%20%20%20%20canvas.height%20%3D%20height%3B%0A%0A%20%20%20%20%20%20context.drawImage(videoElement%2C%200%2C%200%2C%20width%2C%20height)%3B%0A%0A%20%20%20%20%20%20const%20dataURI%20%3D%20canvas.toDataURL('image%2Fpng')%3B%0A%0A%20%20%20%20%20%20return%20dataURI%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20getJPEG(args)%20%7B%0A%20%20%20%20%20%20if%20(!this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20let%20rez%20%3D%20args.REZ%3B%0A%20%20%20%20%20%20if%20(rez%20%3E%201)%20%7B%0A%20%20%20%20%20%20%20%20rez%20%3D%201%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20const%20canvas%20%3D%20document.createElement('canvas')%3B%0A%20%20%20%20%20%20const%20context%20%3D%20canvas.getContext('2d')%3B%0A%20%20%20%20%20%20const%20width%20%3D%20videoElement.videoWidth%20*%20rez%3B%0A%20%20%20%20%20%20const%20height%20%3D%20videoElement.videoHeight%20*%20rez%3B%0A%20%20%20%20%20%20canvas.width%20%3D%20width%3B%0A%20%20%20%20%20%20canvas.height%20%3D%20height%3B%0A%0A%20%20%20%20%20%20context.drawImage(videoElement%2C%200%2C%200%2C%20width%2C%20height)%3B%0A%0A%20%20%20%20%20%20const%20quality%20%3D%20args.QUALITY%3B%0A%20%20%20%20%20%20const%20dataURI%20%3D%20canvas.toDataURL('image%2Fjpeg'%2C%20quality)%3B%0A%0A%20%20%20%20%20%20return%20dataURI%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20getWEBP(args)%20%7B%0A%20%20%20%20%20%20if%20(!this.isSharing())%20%7B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20let%20rez%20%3D%20args.REZ%3B%0A%20%20%20%20%20%20if%20(rez%20%3E%201)%20%7B%0A%20%20%20%20%20%20%20%20rez%20%3D%201%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20const%20canvas%20%3D%20document.createElement('canvas')%3B%0A%20%20%20%20%20%20const%20context%20%3D%20canvas.getContext('2d')%3B%0A%20%20%20%20%20%20const%20width%20%3D%20videoElement.videoWidth%20*%20rez%3B%0A%20%20%20%20%20%20const%20height%20%3D%20videoElement.videoHeight%20*%20rez%3B%0A%20%20%20%20%20%20canvas.width%20%3D%20width%3B%0A%20%20%20%20%20%20canvas.height%20%3D%20height%3B%0A%0A%20%20%20%20%20%20context.drawImage(videoElement%2C%200%2C%200%2C%20width%2C%20height)%3B%0A%0A%20%20%20%20%20%20const%20quality%20%3D%20args.QUALITY%3B%0A%0A%20%20%20%20%20%20const%20dataURI%20%3D%20canvas.toDataURL('image%2Fwebp'%2C%20quality)%3B%0A%0A%20%20%20%20%20%20return%20dataURI%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20getAspectRatio()%20%7B%0A%20%20%20%20%20%20const%20width%20%3D%20videoElement.videoWidth%3B%0A%20%20%20%20%20%20const%20height%20%3D%20videoElement.videoHeight%3B%0A%20%20%20%20%20%20return%20%22%5B%22%20%2B%20width%20%2B%20%22%2C%20%22%20%2B%20height%20%2B%20%22%5D%22%3B%0A%20%20%20%20%7D%0A%20%20%7D%0A%0A%20%20Scratch.extensions.register(new%20VideoSharing())%3B%0A%7D)(Scratch)%3B%0A%20%7D)(Scratch)%3B","data:text/javascript;,(function(Scratch)%20%7B%20%2F%2F%20Name%3A%20Free%20Servers%0A%2F%2F%20Id%3A%20WAYLIVES%0A%2F%2F%20Description%3A%20Here%20you%20can%20find%20a%20free%20server%20for%20your%20projects.%20And%20also%20check%20whether%20it%20is%20working%20now%20or%20not.%0A%2F%2F%20Created%20by%3A%20WAYLIVES%20(https%3A%2F%2Fscratch.mit.edu%2Fusers%2FWAYLIVES%2F)%0A%0A%0A%0A(function%20(Scratch)%20%7B%0A%20%20%22use%20strict%22%3B%0A%0A%20%20if%20(!Scratch.extensions.unsandboxed)%20%7B%0A%20%20%20%20throw%20new%20Error(%22Error%22)%3B%0A%20%20%7D%0A%0A%20%20const%20menuIconURI%20%3D%20%22data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI%2BCjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiByeD0iMTAiIGZpbGw9IiNFMjI2NDgiLz4KPHJlY3QgeD0iMjUiIHk9IjI1IiB3aWR0aD0iNTAiIGhlaWdodD0iMjUiIHJ4PSIzIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjYiLz4KPHJlY3QgeD0iNDciIHk9IjQ4IiB3aWR0aD0iNiIgaGVpZ2h0PSIyNSIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iNzgiIHk9IjY4IiB3aWR0aD0iNiIgaGVpZ2h0PSI1NiIgcng9IjMiIHRyYW5zZm9ybT0icm90YXRlKDkwIDc4IDY4KSIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iNTAiIGN5PSI3MSIgcj0iNSIgZmlsbD0iI0UyMjY0OCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI0Ii8%2BCjxjaXJjbGUgY3g9IjYyLjUiIGN5PSIzNy41IiByPSI1LjUiIGZpbGw9IndoaXRlIi8%2BCjwvc3ZnPgo%3D%22%3B%20%0A%20%20%0A%20%20const%20computing%20%3D%20new%20Map()%3B%0A%20%20const%20computed%20%3D%20new%20Map()%3B%0A%0A%20%20const%20pingWebSocket%20%3D%20async%20(uri)%20%3D%3E%20%7B%0A%20%20%20%20if%20(!(await%20Scratch.canFetch(uri)))%20%7B%0A%20%20%20%20%20%20return%20%7B%0A%20%20%20%20%20%20%20%20expires%3A%200%2C%0A%20%20%20%20%20%20%20%20value%3A%20false%2C%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20let%20ws%3B%0A%20%20%20%20try%20%7B%0A%20%20%20%20%20%20ws%20%3D%20new%20WebSocket(uri)%3B%0A%20%20%20%20%7D%20catch%20(e)%20%7B%0A%20%20%20%20%20%20return%20%7B%0A%20%20%20%20%20%20%20%20expires%3A%200%2C%0A%20%20%20%20%20%20%20%20value%3A%20false%2C%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20let%20timeoutId%3B%0A%20%20%20%20const%20isUp%20%3D%20await%20new%20Promise((resolve)%20%3D%3E%20%7B%0A%20%20%20%20%20%20ws.onopen%20%3D%20()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20setTimeout(()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20%20%20resolve(true)%3B%0A%20%20%20%20%20%20%20%20%7D%2C%202000)%3B%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20ws.onclose%20%3D%20()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20resolve(false)%3B%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20ws.onerror%20%3D%20()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20resolve(false)%3B%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20timeoutId%20%3D%20setTimeout(()%20%3D%3E%20%7B%0A%20%20%20%20%20%20%20%20ws.close()%3B%0A%20%20%20%20%20%20%7D%2C%205000)%3B%0A%20%20%20%20%7D)%3B%0A%0A%20%20%20%20ws.close()%3B%0A%20%20%20%20clearTimeout(timeoutId)%3B%0A%0A%20%20%20%20return%20%7B%0A%20%20%20%20%20%20expires%3A%20Date.now()%20%2B%2060000%2C%0A%20%20%20%20%20%20value%3A%20isUp%2C%0A%20%20%20%20%7D%3B%0A%20%20%7D%3B%20%20%0A%0A%20%20const%20cachedPingWebSocket%20%3D%20(uri)%20%3D%3E%20%7B%0A%20%20%20%20const%20computingEntry%20%3D%20computing.get(uri)%3B%0A%20%20%20%20if%20(computingEntry)%20%7B%0A%20%20%20%20%20%20return%20computingEntry.then((entry)%20%3D%3E%20entry.value)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20const%20computedEntry%20%3D%20computed.get(uri)%3B%0A%20%20%20%20if%20(computedEntry%20%26%26%20Date.now()%20%3C%20computedEntry.expires)%20%7B%0A%20%20%20%20%20%20return%20computedEntry.value%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20const%20promise%20%3D%20pingWebSocket(uri)%3B%0A%20%20%20%20computing.set(uri%2C%20promise)%3B%0A%20%20%20%20return%20promise.then((entry)%20%3D%3E%20%7B%0A%20%20%20%20%20%20computing.delete(uri)%3B%0A%20%20%20%20%20%20computed.set(uri%2C%20entry)%3B%0A%20%20%20%20%20%20return%20entry.value%3B%0A%20%20%20%20%7D)%3B%0A%20%20%7D%3B%0A%0A%20%20%0A%20%20class%20lmsmcutils%20%7B%0A%20%20%20%20getInfo()%20%7B%0A%20%20%20%20%20%20return%20%7B%20%20%20%20%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20id%3A%20%22FreeServers%22%2C%0A%20%20%20%20%20%20%20%20name%3A%20%22Free%20Servers%22%2C%0A%20%20%20%20%20%20%20%20color1%3A%20%22%23E22648%22%2C%0A%20%20%20%20%20%20%20%20color2%3A%20%22%23B01D38%22%2C%0A%20%20%20%20%20%20%20%20color3%3A%20%22%23B01D38%22%2C%0A%20%20%20%20%20%20%20%20menuIconURI%3A%20menuIconURI%2C%0A%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20blocks%3A%20%5B%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20%22label%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%22Is%20cloud%20data%20server%20up%3F%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22ping%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.BOOLEAN%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%22Is%20cloud%20data%20server%20up%20%5BSERVER%5D%20%3F%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20arguments%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20SERVER%3A%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20type%3A%20Scratch.ArgumentType.STRING%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20defaultValue%3A%20%22%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20%22label%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%22Free%20servers%3A%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22one%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%221%20-%20(wss%3A%2F%2Fclouddata.turbowarp.org)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22two%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%222%20-%20(ws%3A%2F%2F127.0.0.1%3A3000%2F)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22three%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%223%20-%20(wss%3A%2F%2Fcloudlink.mikedev101.cc%2F0.2.0)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22four%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%224%20-%20(wss%3A%2F%2Fcl4-test.meower.org)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22five%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%225%20-%20(wss%3A%2F%2Fcl4.tnix.dev%2F)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22six%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%226%20-%20(wss%3A%2F%2Fcl.ssh.surf%2F)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22seven%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%227%20-%20(wss%3A%2F%2Fcl2.ssh.surf%2F)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20opcode%3A%20%22eight%22%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20blockType%3A%20Scratch.BlockType.REPORTER%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20text%3A%20%228%20-%20(wss%3A%2F%2Fechoserver.redman13.repl.co)%22%2C%0A%20%20%20%20%20%20%20%20%20%20%7D%2C%0A%20%20%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20%20%20%22---%22%2C%0A%20%20%20%20%20%20%20%20%5D%2C%0A%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20ping(%7B%20SERVER%20%7D)%20%7B%0A%20%20%20%20%20%20return%20cachedPingWebSocket(SERVER)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20one()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fclouddata.turbowarp.org'%3B%0A%20%20%20%20%7D%0A%20%20%20%20%0A%20%20%20%20two()%20%7B%0A%20%20%20%20%20%20return%20'ws%3A%2F%2F127.0.0.1%3A3000%2F'%3B%0A%20%20%20%20%7D%0A%20%20%20%20%0A%20%20%20%20three()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fcloudlink.mikedev101.cc%2F0.2.0'%3B%0A%20%20%20%20%7D%0A%20%20%20%20%0A%20%20%20%20four()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fcl4-test.meower.org'%3B%0A%20%20%20%20%7D%0A%20%20%20%20%0A%20%20%20%20five()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fcl4.tnix.dev%2F'%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20six()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fcl.ssh.surf%2F'%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20seven()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fcl2.ssh.surf%2F'%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20eight()%20%7B%0A%20%20%20%20%20%20return%20'wss%3A%2F%2Fechoserver.redman13.repl.co'%3B%0A%20%20%20%20%7D%20%20%0A%20%20%7D%0A%20%20Scratch.extensions.register(new%20lmsmcutils())%3B%0A%7D)(Scratch)%3B%0A%20%7D)(Scratch)%3B"]) {
+        vm.extensionManager.loadExtensionURL(extension);
+      }
+
+      vm.runtime.isProjectPermissionManagerDisabled = true;
+      
+    } catch (e) {
+      handleError(e);
+    }
+  </script>
+  
+  
+    <script>
+      const getProjectData = (function() {
+        const storage = scaffolding.storage;
+        storage.onprogress = (total, loaded) => {
+          setProgress(interpolate(0.2, 0.98, loaded / total));
+        };
+        
+        storage.addWebStore(
+          [
+            storage.AssetType.ImageVector,
+            storage.AssetType.ImageBitmap,
+            storage.AssetType.Sound,
+            storage.AssetType.Font
+          ].filter(i => i),
+          (asset) => new URL('./assets/' + asset.assetId + '.' + asset.dataFormat, location).href
+        );
+        return () => new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+          resolve(xhr.response);
+        };
+        xhr.onerror = () => {
+          if (location.protocol === 'file:') {
+            reject(new Error('Zip environment must be used from a website, not from a file URL.'));
+          } else {
+            reject(new Error('Request to load project data failed.'));
+          }
+        };
+        xhr.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setProgress(interpolate(0.1, 0.2, e.loaded / e.total));
+          }
+        };
+        xhr.responseType = 'arraybuffer';
+        xhr.open('GET', "./assets/project.json");
+        xhr.send();
+      });
+      })();
+    </script>
+  <script>
+    const run = async () => {
+      const projectData = await getProjectData();
+      await scaffolding.loadProject(projectData);
+      setProgress(1);
+      loadingScreen.hidden = true;
+      if (true) {
+        scaffolding.start();
+      } else {
+        launchScreen.hidden = false;
+        launchScreen.addEventListener('click', () => {
+          launchScreen.hidden = true;
+          scaffolding.start();
+        });
+        launchScreen.focus();
+      }
+    };
+    run().catch(handleError);
+  </script>
+</body>
+</html>
